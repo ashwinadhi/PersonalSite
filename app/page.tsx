@@ -425,10 +425,10 @@ export default function Portfolio() {
                   <CardContent className="p-6">
                     <h3 className="text-xl font-bold mb-4 text-purple-400">Contact Information</h3>
                     <div className="space-y-4">
-                      <div className="flex items-center">
+                      <a href="mailto:adhihkariashwin965@gmail.com" className="flex items-center">
                         <Mail className="h-5 w-5 text-purple-400 mr-2" />
                         <span className="text-gray-300">adhikariashwin965@gmail.com</span>
-                      </div>
+                      </a>
                       <div className="flex items-center">
                         <Linkedin className="h-5 w-5 text-purple-400 mr-2" />
                         <a href="www.linkedin.com/in/ashwin-adhikari-9066b8182/" className="text-gray-300 hover:text-purple-400">
