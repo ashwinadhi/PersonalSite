@@ -9,10 +9,21 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { db } from "./firebaseConfig"
+import { collection, addDoc, serverTimestamp } from "firebase/firestore"
+import { toast, ToastContainer } from "react-toastify"
+import "react-toastify/dist/ReactToastify.css"
+import { sendContactEmail } from "./email"
 
 export default function Portfolio() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [activeSection, setActiveSection] = useState("hero")
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    message: "",
+  })
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const heroRef = useRef<HTMLDivElement>(null)
   const aboutRef = useRef<HTMLDivElement>(null)
   const experienceRef = useRef<HTMLDivElement>(null)
@@ -22,6 +33,51 @@ export default function Portfolio() {
 
   const { scrollYProgress } = useScroll()
   const scale = useTransform(scrollYProgress, [0, 1], [0.2, 1])
+
+  // Handle form submission
+  const handleSubmitMessage = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!formData.name || !formData.email || !formData.message) {
+      toast.error("Please fill out all fields")
+      return
+    }
+
+    setIsSubmitting(true)
+
+    try {
+      // Save the message to Firestore
+      await addDoc(collection(db, "messages"), {
+        name: formData.name,
+        email: formData.email,
+        message: formData.message,
+        createdAt: serverTimestamp(),
+      })
+
+      // Send email notification
+      const emailResult = await sendContactEmail(formData.name, formData.email, formData.message)
+
+      if (!emailResult.success) {
+        console.error("Email sending failed:", emailResult.error)
+        // We'll still consider the submission successful if it saved to Firebase
+      }
+
+      // Reset the form
+      setFormData({
+        name: "",
+        email: "",
+        message: "",
+      })
+
+      // Show success message
+      toast.success("Message sent successfully!")
+    } catch (error) {
+      console.error("Error sending message: ", error)
+      toast.error("Failed to send message. Please try again later.")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -153,9 +209,10 @@ export default function Portfolio() {
                 <Button onClick={() => scrollToSection(contactRef)} className="bg-purple-600 hover:bg-purple-700">
                   Contact Me
                 </Button>
-                <Button  onClick={() => scrollToSection(projectsRef)}
+                <Button onClick={() => scrollToSection(projectsRef)}
                   variant="outline"
-                  className="border-purple-600 text-purple-400 hover:bg-purple-600 hover:text-white">
+                  className="border-purple-600 text-purple-400 hover:bg-purple-600 hover:text-white"
+                >
                   View Projects
                 </Button>
               </div>
@@ -217,23 +274,21 @@ export default function Portfolio() {
                   <Badge className="bg-pink-600">API Testing</Badge>
                   <Badge className="bg-indigo-600">Performance Testing</Badge>
                   <Badge className="bg-blue-600">Agile Methodologies</Badge>
-                  <Badge className="bg-purple-600">Mobile App Testing</Badge>
                 </div>
               </motion.div>
             </div>
           </div>
         </section>
-
-        {/* Experience Section */}
-        <section id="experience" ref={experienceRef} className="py-20 bg-gray-900">
-          <div className="container mx-auto px-4">
-            <h2 className="text-3xl font-bold mb-12 text-center text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">
+    {/* Experience Section */}
+           <section id="experience" ref={experienceRef} className="py-20 bg-gray-900">
+           <div className="container mx-auto px-4">
+             <h2 className="text-3xl font-bold mb-12 text-center text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">
               Work Experience
-            </h2>
-            <div className="relative">
-              <div className="absolute left-1/2 transform -translate-x-1/2 h-full w-1 bg-gradient-to-b from-purple-600 to-pink-600"></div>
+           </h2>
+             <div className="relative">
+            <div className="absolute left-1/2 transform -translate-x-1/2 h-full w-1 bg-gradient-to-b from-purple-600 to-pink-600"></div>
               <div className="space-y-12">
-                <motion.div
+               <motion.div
                   initial={{ opacity: 0, y: 50 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.8 }}
@@ -244,7 +299,7 @@ export default function Portfolio() {
                   <Card className="w-full md:w-5/12 ml-auto bg-gray-800 border-purple-600">
                     <CardContent className="p-6">
                       <h3 className="text-xl font-bold mb-2 text-purple-400">Associate QA Engineer</h3>
-                      <p className="text-gray-400 mb-2">Dish Media Network | Dec 2023 - Present</p>
+                      <p className="text-gray-400 mb-2">Dish Media Network | Dec 2024 - Present</p>
                       <ul className="list-disc list-inside text-gray-300 space-y-2">
                         <li>Developed and maintained automated test scripts using Selenium and Cypress</li>
                         <li>Performed API testing using Postman and Python requests library</li>
@@ -368,12 +423,12 @@ export default function Portfolio() {
                       <Badge className="bg-pink-600">JavaScript</Badge>
                       <Badge className="bg-indigo-600">Jenkins</Badge>
                     </div>
-                    <Button
+                    <a href="https://github.com/ashwinadhi"><Button 
                       variant="outline"
                       className="w-full border-purple-600 text-purple-400 hover:bg-purple-600 hover:text-white"
                     >
                       View Project
-                    </Button>
+                    </Button></a>
                   </CardContent>
                 </Card>
               </motion.div>
@@ -395,12 +450,12 @@ export default function Portfolio() {
                       <Badge className="bg-pink-600">Newman</Badge>
                       <Badge className="bg-indigo-600">GitHub Actions</Badge>
                     </div>
-                    <Button
+                    <a href="https://github.com/ashwinadhi"><Button
                       variant="outline"
                       className="w-full border-pink-600 text-pink-400 hover:bg-pink-600 hover:text-white"
                     >
                       View Project
-                    </Button>
+                    </Button></a>
                   </CardContent>
                 </Card>
               </motion.div>
@@ -425,13 +480,13 @@ export default function Portfolio() {
                   <CardContent className="p-6">
                     <h3 className="text-xl font-bold mb-4 text-purple-400">Contact Information</h3>
                     <div className="space-y-4">
-                      <div className="flex items-center">
+                      <a href="mailto:adhihkariashwin965@gmail.com" className="flex items-center">
                         <Mail className="h-5 w-5 text-purple-400 mr-2" />
                         <span className="text-gray-300">adhikariashwin965@gmail.com</span>
-                      </div>
+                      </a>
                       <div className="flex items-center">
                         <Linkedin className="h-5 w-5 text-purple-400 mr-2" />
-                        <a href="www.linkedin.com/in/ashwin-adhikari-9066b8182/" className="text-gray-300 hover:text-purple-400">
+                        <a href="https://www.linkedin.com/in/ashwin-adhikari-9066b8182/" className="text-gray-300 hover:text-purple-400">
                          Linkedln
                         </a>
                       </div>
@@ -454,7 +509,7 @@ export default function Portfolio() {
                 <Card className="bg-gray-900 border-pink-600">
                   <CardContent className="p-6">
                     <h3 className="text-xl font-bold mb-4 text-pink-400">Send a Message</h3>
-                    <form className="space-y-4">
+                    <form className="space-y-4" onSubmit={handleSubmitMessage}>
                       <div>
                         <label htmlFor="name" className="block text-sm font-medium text-gray-400 mb-1">
                           Name
@@ -462,8 +517,11 @@ export default function Portfolio() {
                         <input
                           type="text"
                           id="name"
+                          value={formData.name}
+                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                           className="w-full p-2 bg-gray-800 border border-gray-700 rounded-md text-white"
                           placeholder="Your Name"
+                          required
                         />
                       </div>
                       <div>
@@ -473,8 +531,11 @@ export default function Portfolio() {
                         <input
                           type="email"
                           id="email"
+                          value={formData.email}
+                          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                           className="w-full p-2 bg-gray-800 border border-gray-700 rounded-md text-white"
                           placeholder="Your Email"
+                          required
                         />
                       </div>
                       <div>
@@ -484,12 +545,19 @@ export default function Portfolio() {
                         <textarea
                           id="message"
                           rows={4}
+                          value={formData.message}
+                          onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                           className="w-full p-2 bg-gray-800 border border-gray-700 rounded-md text-white resize-none"
                           placeholder="Your Message"
+                          required
                         ></textarea>
                       </div>
-                      <Button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">
-                        Send Message
+                      <Button
+                        type="submit"
+                        className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                        disabled={isSubmitting}
+                      >
+                        {isSubmitting ? "Sending..." : "Send Message"}
                       </Button>
                     </form>
                   </CardContent>
@@ -497,6 +565,7 @@ export default function Portfolio() {
               </motion.div>
             </div>
           </div>
+          <ToastContainer position="bottom-right" theme="dark" />
         </section>
       </main>
 
