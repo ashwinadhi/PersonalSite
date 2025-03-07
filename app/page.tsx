@@ -4,32 +4,26 @@ import type React from "react"
 
 import { useState, useRef, useEffect } from "react"
 import { motion, useScroll, useTransform } from "framer-motion"
-import { CheckCircle, Code, FileCode2, Github, Linkedin, Loader2, Mail, Menu, X } from "lucide-react"
+import { Code, FileCode2, Github, Linkedin, Mail, Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { db } from "./firebaseConfig"
 import { collection, addDoc, serverTimestamp } from "firebase/firestore"
-import { useToast } from "@/components/ui/use-toast"
+import { toast, ToastContainer } from "react-toastify"
+import "react-toastify/dist/ReactToastify.css"
+import { sendContactEmail } from "./email"
 
 export default function Portfolio() {
-  const { toast } = useToast()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [activeSection, setActiveSection] = useState("hero")
-  const [formSubmitting, setFormSubmitting] = useState(false)
-  const [formSubmitted, setFormSubmitted] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     message: "",
   })
-  const [formErrors, setFormErrors] = useState({
-    name: "",
-    email: "",
-    message: "",
-  })
-
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const heroRef = useRef<HTMLDivElement>(null)
   const aboutRef = useRef<HTMLDivElement>(null)
   const experienceRef = useRef<HTMLDivElement>(null)
@@ -39,6 +33,51 @@ export default function Portfolio() {
 
   const { scrollYProgress } = useScroll()
   const scale = useTransform(scrollYProgress, [0, 1], [0.2, 1])
+
+  // Handle form submission
+  const handleSubmitMessage = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!formData.name || !formData.email || !formData.message) {
+      toast.error("Please fill out all fields")
+      return
+    }
+
+    setIsSubmitting(true)
+
+    try {
+      // Save the message to Firestore
+      await addDoc(collection(db, "messages"), {
+        name: formData.name,
+        email: formData.email,
+        message: formData.message,
+        createdAt: serverTimestamp(),
+      })
+
+      // Send email notification
+      const emailResult = await sendContactEmail(formData.name, formData.email, formData.message)
+
+      if (!emailResult.success) {
+        console.error("Email sending failed:", emailResult.error)
+        // We'll still consider the submission successful if it saved to Firebase
+      }
+
+      // Reset the form
+      setFormData({
+        name: "",
+        email: "",
+        message: "",
+      })
+
+      // Show success message
+      toast.success("Message sent successfully!")
+    } catch (error) {
+      console.error("Error sending message: ", error)
+      toast.error("Failed to send message. Please try again later.")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -72,90 +111,6 @@ export default function Portfolio() {
     setMobileMenuOpen(false)
     ref.current?.scrollIntoView({ behavior: "smooth" })
   }
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormData({
-      ...formData,
-      [name]: value,
-    })
-
-    // Clear error when user starts typing
-    if (formErrors[name as keyof typeof formErrors]) {
-      setFormErrors({
-        ...formErrors,
-        [name]: "",
-      })
-    }
-  }
-
-  const validateForm = () => {
-    let valid = true
-    const newErrors = { name: "", email: "", message: "" }
-
-    if (!formData.name.trim()) {
-      newErrors.name = "Name is required"
-      valid = false
-    }
-
-    if (!formData.email.trim()) {
-      newErrors.email = "Email is required"
-      valid = false
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = "Please enter a valid email address"
-      valid = false
-    }
-
-    if (!formData.message.trim()) {
-      newErrors.message = "Message is required"
-      valid = false
-    }
-
-    setFormErrors(newErrors)
-    return valid
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!validateForm()) return
-
-    setFormSubmitting(true)
-
-    try {
-      // Add document to Firestore
-      await addDoc(collection(db, "messages"), {
-        name: formData.name,
-        email: formData.email,
-        message: formData.message,
-        createdAt: serverTimestamp(),
-      })
-
-      // Reset form
-      setFormData({ name: "", email: "", message: "" })
-      setFormSubmitted(true)
-
-      toast({
-        title: "Message sent!",
-        description: "Thank you for reaching out. I'll get back to you soon.",
-        variant: "default",
-      })
-
-      // Reset success state after 5 seconds
-      setTimeout(() => {
-        setFormSubmitted(false)
-      }, 5000)
-    } catch (error) {
-      console.error("Error sending message:", error)
-      toast({
-        title: "Error",
-        description: "There was a problem sending your message. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setFormSubmitting(false)
-    }
-  }
-
 
   const skills = [
     { name: "Selenium", icon: <FileCode2 className="h-5 w-5" />, level: 90 },
@@ -254,9 +209,10 @@ export default function Portfolio() {
                 <Button onClick={() => scrollToSection(contactRef)} className="bg-purple-600 hover:bg-purple-700">
                   Contact Me
                 </Button>
-                <Button  onClick={() => scrollToSection(projectsRef)}
+                <Button onClick={() => scrollToSection(projectsRef)}
                   variant="outline"
-                  className="border-purple-600 text-purple-400 hover:bg-purple-600 hover:text-white">
+                  className="border-purple-600 text-purple-400 hover:bg-purple-600 hover:text-white"
+                >
                   View Projects
                 </Button>
               </div>
@@ -318,23 +274,21 @@ export default function Portfolio() {
                   <Badge className="bg-pink-600">API Testing</Badge>
                   <Badge className="bg-indigo-600">Performance Testing</Badge>
                   <Badge className="bg-blue-600">Agile Methodologies</Badge>
-                  <Badge className="bg-purple-600">Mobile App Testing</Badge>
                 </div>
               </motion.div>
             </div>
           </div>
         </section>
-
-        {/* Experience Section */}
-        <section id="experience" ref={experienceRef} className="py-20 bg-gray-900">
-          <div className="container mx-auto px-4">
-            <h2 className="text-3xl font-bold mb-12 text-center text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">
+    {/* Experience Section */}
+           <section id="experience" ref={experienceRef} className="py-20 bg-gray-900">
+           <div className="container mx-auto px-4">
+             <h2 className="text-3xl font-bold mb-12 text-center text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">
               Work Experience
-            </h2>
-            <div className="relative">
-              <div className="absolute left-1/2 transform -translate-x-1/2 h-full w-1 bg-gradient-to-b from-purple-600 to-pink-600"></div>
+           </h2>
+             <div className="relative">
+            <div className="absolute left-1/2 transform -translate-x-1/2 h-full w-1 bg-gradient-to-b from-purple-600 to-pink-600"></div>
               <div className="space-y-12">
-                <motion.div
+               <motion.div
                   initial={{ opacity: 0, y: 50 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.8 }}
@@ -345,7 +299,7 @@ export default function Portfolio() {
                   <Card className="w-full md:w-5/12 ml-auto bg-gray-800 border-purple-600">
                     <CardContent className="p-6">
                       <h3 className="text-xl font-bold mb-2 text-purple-400">Associate QA Engineer</h3>
-                      <p className="text-gray-400 mb-2">Dish Media Network | Dec 2023 - Present</p>
+                      <p className="text-gray-400 mb-2">Dish Media Network | Dec 2024 - Present</p>
                       <ul className="list-disc list-inside text-gray-300 space-y-2">
                         <li>Developed and maintained automated test scripts using Selenium and Cypress</li>
                         <li>Performed API testing using Postman and Python requests library</li>
@@ -532,7 +486,7 @@ export default function Portfolio() {
                       </a>
                       <div className="flex items-center">
                         <Linkedin className="h-5 w-5 text-purple-400 mr-2" />
-                        <a href="www.linkedin.com/in/ashwin-adhikari-9066b8182/" className="text-gray-300 hover:text-purple-400">
+                        <a href="https://www.linkedin.com/in/ashwin-adhikari-9066b8182/" className="text-gray-300 hover:text-purple-400">
                          Linkedln
                         </a>
                       </div>
@@ -552,10 +506,10 @@ export default function Portfolio() {
                 transition={{ duration: 0.8, delay: 0.2 }}
                 viewport={{ once: true }}
               >
-                 <Card className="bg-gray-900 border-pink-600">
+                <Card className="bg-gray-900 border-pink-600">
                   <CardContent className="p-6">
                     <h3 className="text-xl font-bold mb-4 text-pink-400">Send a Message</h3>
-                    <form className="space-y-4" onSubmit={handleSubmit}>
+                    <form className="space-y-4" onSubmit={handleSubmitMessage}>
                       <div>
                         <label htmlFor="name" className="block text-sm font-medium text-gray-400 mb-1">
                           Name
@@ -563,15 +517,12 @@ export default function Portfolio() {
                         <input
                           type="text"
                           id="name"
-                          name="name"
                           value={formData.name}
-                          onChange={handleInputChange}
-                          className={`w-full p-2 bg-gray-800 border rounded-md text-white ${
-                            formErrors.name ? "border-red-500" : "border-gray-700"
-                          }`}
+                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                          className="w-full p-2 bg-gray-800 border border-gray-700 rounded-md text-white"
                           placeholder="Your Name"
+                          required
                         />
-                        {formErrors.name && <p className="mt-1 text-sm text-red-500">{formErrors.name}</p>}
                       </div>
                       <div>
                         <label htmlFor="email" className="block text-sm font-medium text-gray-400 mb-1">
@@ -580,15 +531,12 @@ export default function Portfolio() {
                         <input
                           type="email"
                           id="email"
-                          name="email"
                           value={formData.email}
-                          onChange={handleInputChange}
-                          className={`w-full p-2 bg-gray-800 border rounded-md text-white ${
-                            formErrors.email ? "border-red-500" : "border-gray-700"
-                          }`}
+                          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                          className="w-full p-2 bg-gray-800 border border-gray-700 rounded-md text-white"
                           placeholder="Your Email"
+                          required
                         />
-                        {formErrors.email && <p className="mt-1 text-sm text-red-500">{formErrors.email}</p>}
                       </div>
                       <div>
                         <label htmlFor="message" className="block text-sm font-medium text-gray-400 mb-1">
@@ -596,35 +544,20 @@ export default function Portfolio() {
                         </label>
                         <textarea
                           id="message"
-                          name="message"
-                          value={formData.message}
-                          onChange={handleInputChange}
                           rows={4}
-                          className={`w-full p-2 bg-gray-800 border rounded-md text-white resize-none ${
-                            formErrors.message ? "border-red-500" : "border-gray-700"
-                          }`}
+                          value={formData.message}
+                          onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                          className="w-full p-2 bg-gray-800 border border-gray-700 rounded-md text-white resize-none"
                           placeholder="Your Message"
+                          required
                         ></textarea>
-                        {formErrors.message && <p className="mt-1 text-sm text-red-500">{formErrors.message}</p>}
                       </div>
                       <Button
                         type="submit"
                         className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-                        disabled={formSubmitting}
+                        disabled={isSubmitting}
                       >
-                        {formSubmitting ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending...
-                          </>
-                        ) : formSubmitted ? (
-                          <>
-                            <CheckCircle className="mr-2 h-4 w-4" /> Message Sent!
-                          </>
-                        ) : (
-                          "Send Message"
-                        )}
-
-
+                        {isSubmitting ? "Sending..." : "Send Message"}
                       </Button>
                     </form>
                   </CardContent>
@@ -632,6 +565,7 @@ export default function Portfolio() {
               </motion.div>
             </div>
           </div>
+          <ToastContainer position="bottom-right" theme="dark" />
         </section>
       </main>
 
