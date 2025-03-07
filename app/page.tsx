@@ -4,15 +4,32 @@ import type React from "react"
 
 import { useState, useRef, useEffect } from "react"
 import { motion, useScroll, useTransform } from "framer-motion"
-import { Code, FileCode2, Github, Linkedin, Mail, Menu, X } from "lucide-react"
+import { CheckCircle, Code, FileCode2, Github, Linkedin, Loader2, Mail, Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { db } from "./firebaseConfig"
+import { collection, addDoc, serverTimestamp } from "firebase/firestore"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function Portfolio() {
+  const { toast } = useToast()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [activeSection, setActiveSection] = useState("hero")
+  const [formSubmitting, setFormSubmitting] = useState(false)
+  const [formSubmitted, setFormSubmitted] = useState(false)
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    message: "",
+  })
+  const [formErrors, setFormErrors] = useState({
+    name: "",
+    email: "",
+    message: "",
+  })
+
   const heroRef = useRef<HTMLDivElement>(null)
   const aboutRef = useRef<HTMLDivElement>(null)
   const experienceRef = useRef<HTMLDivElement>(null)
@@ -55,6 +72,90 @@ export default function Portfolio() {
     setMobileMenuOpen(false)
     ref.current?.scrollIntoView({ behavior: "smooth" })
   }
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setFormData({
+      ...formData,
+      [name]: value,
+    })
+
+    // Clear error when user starts typing
+    if (formErrors[name as keyof typeof formErrors]) {
+      setFormErrors({
+        ...formErrors,
+        [name]: "",
+      })
+    }
+  }
+
+  const validateForm = () => {
+    let valid = true
+    const newErrors = { name: "", email: "", message: "" }
+
+    if (!formData.name.trim()) {
+      newErrors.name = "Name is required"
+      valid = false
+    }
+
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required"
+      valid = false
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = "Please enter a valid email address"
+      valid = false
+    }
+
+    if (!formData.message.trim()) {
+      newErrors.message = "Message is required"
+      valid = false
+    }
+
+    setFormErrors(newErrors)
+    return valid
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!validateForm()) return
+
+    setFormSubmitting(true)
+
+    try {
+      // Add document to Firestore
+      await addDoc(collection(db, "messages"), {
+        name: formData.name,
+        email: formData.email,
+        message: formData.message,
+        createdAt: serverTimestamp(),
+      })
+
+      // Reset form
+      setFormData({ name: "", email: "", message: "" })
+      setFormSubmitted(true)
+
+      toast({
+        title: "Message sent!",
+        description: "Thank you for reaching out. I'll get back to you soon.",
+        variant: "default",
+      })
+
+      // Reset success state after 5 seconds
+      setTimeout(() => {
+        setFormSubmitted(false)
+      }, 5000)
+    } catch (error) {
+      console.error("Error sending message:", error)
+      toast({
+        title: "Error",
+        description: "There was a problem sending your message. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setFormSubmitting(false)
+    }
+  }
+
 
   const skills = [
     { name: "Selenium", icon: <FileCode2 className="h-5 w-5" />, level: 90 },
@@ -368,12 +469,12 @@ export default function Portfolio() {
                       <Badge className="bg-pink-600">JavaScript</Badge>
                       <Badge className="bg-indigo-600">Jenkins</Badge>
                     </div>
-                    <Button
+                    <a href="https://github.com/ashwinadhi"><Button 
                       variant="outline"
                       className="w-full border-purple-600 text-purple-400 hover:bg-purple-600 hover:text-white"
                     >
                       View Project
-                    </Button>
+                    </Button></a>
                   </CardContent>
                 </Card>
               </motion.div>
@@ -395,12 +496,12 @@ export default function Portfolio() {
                       <Badge className="bg-pink-600">Newman</Badge>
                       <Badge className="bg-indigo-600">GitHub Actions</Badge>
                     </div>
-                    <Button
+                    <a href="https://github.com/ashwinadhi"><Button
                       variant="outline"
                       className="w-full border-pink-600 text-pink-400 hover:bg-pink-600 hover:text-white"
                     >
                       View Project
-                    </Button>
+                    </Button></a>
                   </CardContent>
                 </Card>
               </motion.div>
@@ -451,10 +552,10 @@ export default function Portfolio() {
                 transition={{ duration: 0.8, delay: 0.2 }}
                 viewport={{ once: true }}
               >
-                <Card className="bg-gray-900 border-pink-600">
+                 <Card className="bg-gray-900 border-pink-600">
                   <CardContent className="p-6">
                     <h3 className="text-xl font-bold mb-4 text-pink-400">Send a Message</h3>
-                    <form className="space-y-4">
+                    <form className="space-y-4" onSubmit={handleSubmit}>
                       <div>
                         <label htmlFor="name" className="block text-sm font-medium text-gray-400 mb-1">
                           Name
@@ -462,9 +563,15 @@ export default function Portfolio() {
                         <input
                           type="text"
                           id="name"
-                          className="w-full p-2 bg-gray-800 border border-gray-700 rounded-md text-white"
+                          name="name"
+                          value={formData.name}
+                          onChange={handleInputChange}
+                          className={`w-full p-2 bg-gray-800 border rounded-md text-white ${
+                            formErrors.name ? "border-red-500" : "border-gray-700"
+                          }`}
                           placeholder="Your Name"
                         />
+                        {formErrors.name && <p className="mt-1 text-sm text-red-500">{formErrors.name}</p>}
                       </div>
                       <div>
                         <label htmlFor="email" className="block text-sm font-medium text-gray-400 mb-1">
@@ -473,9 +580,15 @@ export default function Portfolio() {
                         <input
                           type="email"
                           id="email"
-                          className="w-full p-2 bg-gray-800 border border-gray-700 rounded-md text-white"
+                          name="email"
+                          value={formData.email}
+                          onChange={handleInputChange}
+                          className={`w-full p-2 bg-gray-800 border rounded-md text-white ${
+                            formErrors.email ? "border-red-500" : "border-gray-700"
+                          }`}
                           placeholder="Your Email"
                         />
+                        {formErrors.email && <p className="mt-1 text-sm text-red-500">{formErrors.email}</p>}
                       </div>
                       <div>
                         <label htmlFor="message" className="block text-sm font-medium text-gray-400 mb-1">
@@ -483,13 +596,35 @@ export default function Portfolio() {
                         </label>
                         <textarea
                           id="message"
+                          name="message"
+                          value={formData.message}
+                          onChange={handleInputChange}
                           rows={4}
-                          className="w-full p-2 bg-gray-800 border border-gray-700 rounded-md text-white resize-none"
+                          className={`w-full p-2 bg-gray-800 border rounded-md text-white resize-none ${
+                            formErrors.message ? "border-red-500" : "border-gray-700"
+                          }`}
                           placeholder="Your Message"
                         ></textarea>
+                        {formErrors.message && <p className="mt-1 text-sm text-red-500">{formErrors.message}</p>}
                       </div>
-                      <Button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">
-                        Send Message
+                      <Button
+                        type="submit"
+                        className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                        disabled={formSubmitting}
+                      >
+                        {formSubmitting ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending...
+                          </>
+                        ) : formSubmitted ? (
+                          <>
+                            <CheckCircle className="mr-2 h-4 w-4" /> Message Sent!
+                          </>
+                        ) : (
+                          "Send Message"
+                        )}
+
+
                       </Button>
                     </form>
                   </CardContent>
