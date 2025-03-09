@@ -4,3 +4,4 @@
 
 [[plugins]]
   package = "@netlify/plugin-nextjs" # This loads the Next.js plugin for Netlify
+  

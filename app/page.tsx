@@ -340,8 +340,8 @@ export default function Portfolio() {
                 <div className="absolute left-1/2 transform -translate-x-1/2 -translate-y-4 w-4 h-4 rounded-full bg-purple-600"></div>
                 <Card className="w-full md:w-5/12 ml-auto bg-gray-800 border-purple-600">
                   <CardContent className="p-6">
-                    <h3 className="text-xl font-bold mb-2 text-purple-400">Senior Consultant Team Manager</h3>
-                    <p className="text-gray-400 mb-2">Cerotid Inc. | Jan 2022 - Feb 2024</p>
+                    <h3 className="text-xl font-bold mb-2 text-purple-400">Junior/Senior Consultant Team Manager</h3>
+                    <p className="text-gray-400 mb-2">Cerotid Inc. | Aug 2021 - Feb 2024</p>
                     <ul className="list-disc list-inside text-gray-300 space-y-2">
                     <li>Led a team of 20+ consultants, driving strategic initiatives and enhancing team performance through mentorship, training, and process optimization.
                   
